@@ -33,12 +33,16 @@ import org.onosproject.incubator.net.intf.InterfaceListener;
 import org.onosproject.incubator.net.intf.InterfaceService;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.Host;
+import org.onosproject.net.config.NetworkConfigRegistry;
+import org.onosproject.net.config.basics.SubjectFactories;
 import org.onosproject.net.host.HostEvent;
 import org.onosproject.net.host.HostListener;
 import org.onosproject.net.host.HostService;
 import org.onosproject.net.intent.IntentService;
 import org.onosproject.routing.IntentSynchronizationAdminService;
 import org.onosproject.routing.IntentSynchronizationService;
+import org.onosproject.net.config.ConfigFactory;
+
 import org.slf4j.Logger;
 
 import java.util.Map;
@@ -53,6 +57,9 @@ import static org.slf4j.LoggerFactory.getLogger;
 public class Vpls {
     private static final String VPLS_APP = "org.onosproject.vpls";
     private final Logger log = getLogger(getClass());
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected NetworkConfigRegistry registry;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected ApplicationService applicationService;
@@ -84,9 +91,25 @@ public class Vpls {
 
     private ApplicationId appId;
 
+    private ConfigFactory<ApplicationId, TaggingConfig> taggingConfigFactory =
+            new ConfigFactory<ApplicationId, TaggingConfig>(SubjectFactories.APP_SUBJECT_FACTORY, TaggingConfig.class, "vpls") {
+                @Override
+                public TaggingConfig createConfig() {
+                    return new TaggingConfig();
+                }
+            };
+
     @Activate
     public void activate() {
         appId = coreService.registerApplication(VPLS_APP);
+
+        registry.registerConfigFactory(taggingConfigFactory);
+
+        if(taggingConfigFactory.createConfig().equals(VplsTag.MPLS)){
+            log.info("running MPLS mode");
+        } else {
+            log.info("running VLAN mode");
+        }
 
         intentInstaller = new IntentInstaller(appId,
                                               intentService,
